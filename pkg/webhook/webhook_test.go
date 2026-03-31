@@ -54,6 +54,87 @@ func TestValidatePolicy(t *testing.T) {
 	}
 }
 
+func TestValidatePolicyCompile(t *testing.T) {
+	// Use prefetched data.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join("testdata", r.URL.Path)
+		f, err := os.Open(path)
+		if err != nil {
+			t.Logf("%s not found", path)
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		defer f.Close()
+		if _, err := io.Copy(w, f); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}))
+	defer srv.Close()
+
+	gh, err := github.NewClient(srv.Client()).WithEnterpriseURLs(srv.URL, srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := slogtest.Context(t)
+
+	tests := []struct {
+		name    string
+		owner   string
+		repo    string
+		files   []string
+		wantErr bool
+	}{
+		{
+			name:    "valid policy passes",
+			owner:   "foo",
+			repo:    "bar",
+			files:   []string{".github/chainguard/test.sts.yaml"},
+			wantErr: false,
+		},
+		{
+			name:    "invalid regex in subject_pattern",
+			owner:   "foo",
+			repo:    "bar",
+			files:   []string{".github/chainguard/invalid-regex.sts.yaml"},
+			wantErr: true,
+		},
+		{
+			name:    "mutual exclusive issuer and issuer_pattern",
+			owner:   "foo",
+			repo:    "bar",
+			files:   []string{".github/chainguard/mutual-exclusive.sts.yaml"},
+			wantErr: true,
+		},
+		{
+			name:    "missing subject and subject_pattern",
+			owner:   "foo",
+			repo:    "bar",
+			files:   []string{".github/chainguard/missing-subject.sts.yaml"},
+			wantErr: true,
+		},
+		{
+			name:    "org trust policy with invalid regex",
+			owner:   "foo",
+			repo:    ".github",
+			files:   []string{".github/chainguard/org-invalid-regex.sts.yaml"},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validatePolicies(ctx, gh, tc.owner, tc.repo, "deadbeef", tc.files)
+			if tc.wantErr && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 func TestOrgFilter(t *testing.T) {
 	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "should not be called", http.StatusUnauthorized)

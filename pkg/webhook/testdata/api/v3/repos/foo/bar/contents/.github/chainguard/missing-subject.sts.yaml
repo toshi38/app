@@ -1,0 +1,9 @@
+{
+  "name": "missing-subject.sts.yaml",
+  "path": ".github/chainguard/missing-subject.sts.yaml",
+  "sha": "0000000000000000000000000000000000000003",
+  "size": 72,
+  "type": "file",
+  "content": "aXNzdWVyOiBodHRwczovL3Rva2VuLmFjdGlvbnMuZ2l0aHVidXNlcmNvbnRl\nbnQuY29tCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCg==\n",
+  "encoding": "base64"
+}

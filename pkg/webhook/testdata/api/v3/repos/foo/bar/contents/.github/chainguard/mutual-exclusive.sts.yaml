@@ -1,0 +1,9 @@
+{
+  "name": "mutual-exclusive.sts.yaml",
+  "path": ".github/chainguard/mutual-exclusive.sts.yaml",
+  "sha": "0000000000000000000000000000000000000002",
+  "size": 130,
+  "type": "file",
+  "content": "aXNzdWVyOiBodHRwczovL3Rva2VuLmFjdGlvbnMuZ2l0aHVidXNlcmNvbnRl\nbnQuY29tCmlzc3Vlcl9wYXR0ZXJuOiAiaHR0cHM6Ly8uKiIKc3ViamVjdDog\ndGVzdApwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZAo=\n",
+  "encoding": "base64"
+}

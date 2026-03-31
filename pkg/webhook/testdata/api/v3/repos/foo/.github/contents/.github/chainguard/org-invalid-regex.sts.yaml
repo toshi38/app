@@ -1,0 +1,9 @@
+{
+  "name": "org-invalid-regex.sts.yaml",
+  "path": ".github/chainguard/org-invalid-regex.sts.yaml",
+  "sha": "0000000000000000000000000000000000000004",
+  "size": 130,
+  "type": "file",
+  "content": "aXNzdWVyOiBodHRwczovL3Rva2VuLmFjdGlvbnMuZ2l0aHVidXNlcmNvbnRl\nbnQuY29tCnN1YmplY3RfcGF0dGVybjogIl1bIgpwZXJtaXNzaW9uczoKICBj\nb250ZW50czogcmVhZApyZXBvc2l0b3JpZXM6CiAgLSBteS1yZXBvCg==\n",
+  "encoding": "base64"
+}
