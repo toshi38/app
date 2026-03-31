@@ -274,6 +274,112 @@ func TestExchangeValidation(t *testing.T) {
 	}
 }
 
+func TestExchangeEnforcement(t *testing.T) {
+	ctx := context.Background()
+	atr := newGitHubClient(t, newFakeGitHub())
+
+	pk, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("cannot generate RSA key %v", err)
+	}
+	signer, err := jose.NewSigner(jose.SigningKey{
+		Algorithm: jose.RS256,
+		Key:       pk,
+	}, nil)
+	if err != nil {
+		t.Fatalf("jose.NewSigner() = %v", err)
+	}
+
+	iss := "https://token.actions.githubusercontent.com"
+	token, err := josejwt.Signed(signer).Claims(josejwt.Claims{
+		Subject:  "foo",
+		Issuer:   iss,
+		Audience: josejwt.Audience{"octosts"},
+		Expiry:   josejwt.NewNumericDate(time.Now().Add(10 * time.Minute)),
+	}).Serialize()
+	if err != nil {
+		t.Fatalf("CompactSerialize failed: %v", err)
+	}
+	provider.AddTestKeySetVerifier(t, iss, &oidc.StaticKeySet{
+		PublicKeys: []crypto.PublicKey{pk.Public()},
+	})
+	ctx = metadata.NewIncomingContext(ctx, metadata.MD{"authorization": []string{"Bearer " + token}})
+
+	for _, tc := range []struct {
+		name             string
+		enforceOrgPolicy bool
+		warnMode         bool
+		scope            string
+		identity         string
+		wantCode         codes.Code // 0 means expect success
+	}{
+		{
+			name:             "enforcement on, repo scope rejected",
+			enforceOrgPolicy: true,
+			scope:            "org/repo",
+			identity:         "foo",
+			wantCode:         codes.PermissionDenied,
+		},
+		{
+			name:             "enforcement on, org scope allowed",
+			enforceOrgPolicy: true,
+			scope:            "org",
+			identity:         "foo",
+			wantCode:         0,
+		},
+		{
+			name:             "enforcement off, repo scope allowed",
+			enforceOrgPolicy: false,
+			scope:            "org/repo",
+			identity:         "foo",
+			wantCode:         0,
+		},
+		{
+			name:             "enforcement on, org/.github scope allowed",
+			enforceOrgPolicy: true,
+			scope:            "org/.github",
+			identity:         "foo",
+			wantCode:         0,
+		},
+		{
+			name:             "enforcement warn mode, repo scope allowed with log",
+			enforceOrgPolicy: true,
+			warnMode:         true,
+			scope:            "org/repo",
+			identity:         "foo",
+			wantCode:         0,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &sts{
+				im:                   &fakeInstallMgr{atr: atr},
+				enforceOrgPolicy:     tc.enforceOrgPolicy,
+				enforceOrgPolicyWarn: tc.warnMode,
+			}
+			_, err := s.Exchange(ctx, &v1.ExchangeRequest{
+				Identity: tc.identity,
+				Scope:    tc.scope,
+			})
+			if tc.wantCode == 0 {
+				if err != nil {
+					t.Fatalf("expected success, got error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			st, ok := status.FromError(err)
+			if !ok {
+				t.Fatalf("expected gRPC status error, got %T", err)
+			}
+			if st.Code() != tc.wantCode {
+				t.Errorf("expected code %v, got %v: %s", tc.wantCode, st.Code(), st.Message())
+			}
+		})
+	}
+}
+
 func newFakeGitHubRateLimit(statusCode int) *fakeGitHub {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/app/installations", func(w http.ResponseWriter, r *http.Request) {
