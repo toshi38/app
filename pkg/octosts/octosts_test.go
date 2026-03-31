@@ -308,7 +308,6 @@ func TestExchangeEnforcement(t *testing.T) {
 	for _, tc := range []struct {
 		name             string
 		enforceOrgPolicy bool
-		warnMode         bool
 		scope            string
 		identity         string
 		wantCode         codes.Code // 0 means expect success
@@ -341,20 +340,11 @@ func TestExchangeEnforcement(t *testing.T) {
 			identity:         "foo",
 			wantCode:         0,
 		},
-		{
-			name:             "enforcement warn mode, repo scope allowed with log",
-			enforceOrgPolicy: true,
-			warnMode:         true,
-			scope:            "org/repo",
-			identity:         "foo",
-			wantCode:         0,
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &sts{
-				im:                   &fakeInstallMgr{atr: atr},
-				enforceOrgPolicy:     tc.enforceOrgPolicy,
-				enforceOrgPolicyWarn: tc.warnMode,
+				im:               &fakeInstallMgr{atr: atr},
+				enforceOrgPolicy: tc.enforceOrgPolicy,
 			}
 			_, err := s.Exchange(ctx, &v1.ExchangeRequest{
 				Identity: tc.identity,

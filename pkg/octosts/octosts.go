@@ -40,14 +40,13 @@ const (
 	maxRetry   = 3
 )
 
-func NewSecurityTokenServiceServer(im ghinstall.Manager, ceclient cloudevents.Client, domain string, metrics bool, enforceOrgPolicy bool, enforceOrgPolicyWarn bool) pboidc.SecurityTokenServiceServer {
+func NewSecurityTokenServiceServer(im ghinstall.Manager, ceclient cloudevents.Client, domain string, metrics bool, enforceOrgPolicy bool) pboidc.SecurityTokenServiceServer {
 	return &sts{
-		im:                   im,
-		ceclient:             ceclient,
-		domain:               domain,
-		metrics:              metrics,
-		enforceOrgPolicy:     enforceOrgPolicy,
-		enforceOrgPolicyWarn: enforceOrgPolicyWarn,
+		im:               im,
+		ceclient:         ceclient,
+		domain:           domain,
+		metrics:          metrics,
+		enforceOrgPolicy: enforceOrgPolicy,
 	}
 }
 
@@ -56,12 +55,11 @@ var trustPolicies = expirablelru.NewLRU[cacheTrustPolicyKey, string](200, nil, t
 type sts struct {
 	pboidc.UnimplementedSecurityTokenServiceServer
 
-	im                   ghinstall.Manager
-	ceclient             cloudevents.Client
-	domain               string
-	metrics              bool
-	enforceOrgPolicy     bool
-	enforceOrgPolicyWarn bool
+	im               ghinstall.Manager
+	ceclient         cloudevents.Client
+	domain           string
+	metrics          bool
+	enforceOrgPolicy bool
 }
 
 type cacheTrustPolicyKey struct {
@@ -171,12 +169,8 @@ func (s *sts) Exchange(ctx context.Context, request *pboidc.ExchangeRequest) (_ 
 
 	// Enforce org-only policy if configured.
 	if s.enforceOrgPolicy && strings.Contains(requestScope, "/") && path.Base(requestScope) != ".github" {
-		if s.enforceOrgPolicyWarn {
-			clog.FromContext(ctx).Infof("org enforcement: would reject repo-scoped request for %s (warn mode)", requestScope)
-		} else {
-			return nil, status.Error(codes.PermissionDenied,
-				"repo-scoped trust policies are disabled by org-level enforcement; define policies in the .github repository with the repositories field to scope access")
-		}
+		return nil, status.Error(codes.PermissionDenied,
+			"repo-scoped trust policies are disabled by org-level enforcement; define policies in the .github repository with the repositories field to scope access")
 	}
 
 	var base *ghinstallation.AppsTransport

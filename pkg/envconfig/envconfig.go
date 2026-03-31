@@ -18,7 +18,6 @@ type EnvConfig struct {
 	AppSecretCertificateEnvVar string   `envconfig:"APP_SECRET_CERTIFICATE_ENV_VAR" required:"false"`
 	Metrics                    bool     `envconfig:"METRICS" required:"false" default:"true"`
 	EnforceOrgPolicy           bool     `envconfig:"ENFORCE_ORG_POLICY" required:"false" default:"false"`
-	EnforceOrgPolicyWarn       bool     `envconfig:"ENFORCE_ORG_POLICY_WARN" required:"false" default:"false"`
 }
 
 type EnvConfigApp struct {
