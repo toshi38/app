@@ -190,14 +190,22 @@ func validatePolicies(ctx context.Context, client *github.Client, owner, repo st
 
 		switch repo {
 		case ".github":
-			if err := yaml.UnmarshalStrict([]byte(raw), &octosts.OrgTrustPolicy{}); err != nil {
+			otp := &octosts.OrgTrustPolicy{}
+			if err := yaml.UnmarshalStrict([]byte(raw), otp); err != nil {
 				log.Infof("failed to parse org trust policy: %v", err)
+				merr = multierror.Append(merr, fmt.Errorf("%s: %w", f, err))
+			} else if err := otp.Compile(); err != nil {
+				log.Infof("failed to compile org trust policy: %v", err)
 				merr = multierror.Append(merr, fmt.Errorf("%s: %w", f, err))
 			}
 
 		default:
-			if err := yaml.UnmarshalStrict([]byte(raw), &octosts.TrustPolicy{}); err != nil {
+			tp := &octosts.TrustPolicy{}
+			if err := yaml.UnmarshalStrict([]byte(raw), tp); err != nil {
 				log.Infof("failed to parse trust policy: %v", err)
+				merr = multierror.Append(merr, fmt.Errorf("%s: %w", f, err))
+			} else if err := tp.Compile(); err != nil {
+				log.Infof("failed to compile trust policy: %v", err)
 				merr = multierror.Append(merr, fmt.Errorf("%s: %w", f, err))
 			}
 		}
