@@ -58,6 +58,10 @@ module "webhook" {
         {
           name  = "KMS_KEYS"
           value = join(",", local.kms_keys)
+        },
+        {
+          name  = "ENFORCE_ORG_POLICY"
+          value = tostring(var.enforce_org_policy)
         }
       ]
     }

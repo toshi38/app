@@ -78,4 +78,6 @@ module "app" {
 
   github_apps           = var.github_apps
   notification_channels = local.notification_channels
+
+  enforce_org_policy = var.enforce_org_policy
 }

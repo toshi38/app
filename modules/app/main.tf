@@ -119,6 +119,10 @@ module "this" {
         {
           name  = "STS_DOMAIN",
           value = var.domain,
+        },
+        {
+          name  = "ENFORCE_ORG_POLICY"
+          value = tostring(var.enforce_org_policy)
         }
       ]
       regional-env = [{

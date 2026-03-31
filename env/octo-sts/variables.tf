@@ -18,3 +18,9 @@ variable "github_apps" {
     key_version = number
   }))
 }
+
+variable "enforce_org_policy" {
+  description = "When true, reject repo-level trust policies and require org-level policies in the .github repository."
+  type        = bool
+  default     = false
+}
