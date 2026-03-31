@@ -1,0 +1,9 @@
+{
+  "name": "test.sts.yaml",
+  "path": ".github/chainguard/test.sts.yaml",
+  "sha": "0000000000000000000000000000000000000005",
+  "size": 130,
+  "type": "file",
+  "content": "aXNzdWVyOiBodHRwczovL3Rva2VuLmFjdGlvbnMuZ2l0aHVidXNlcmNvbnRl\nbnQuY29tCnN1YmplY3Q6IHJlcG86Zm9vL2JhcjpyZWY6cmVmcy9oZWFkcy9t\nYWluCnBlcm1pc3Npb25zOgogIGNvbnRlbnRzOiByZWFkCnJlcG9zaXRvcmll\nczoKICAtIGJhcgo=\n",
+  "encoding": "base64"
+}

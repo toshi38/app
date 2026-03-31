@@ -316,6 +316,128 @@ func TestWebhookOK(t *testing.T) {
 	}
 }
 
+func TestWebhookEnforcement(t *testing.T) {
+	tests := []struct {
+		name             string
+		enforceOrgPolicy bool
+		repo             string
+		wantConclusion   string
+		wantTitle        string
+	}{
+		{
+			name:             "enforcement on, repo scope rejected",
+			enforceOrgPolicy: true,
+			repo:             "bar",
+			wantConclusion:   "failure",
+			wantTitle:        "Trust policy not allowed.",
+		},
+		{
+			name:             "enforcement on, .github repo allowed",
+			enforceOrgPolicy: true,
+			repo:             ".github",
+			wantConclusion:   "success",
+			wantTitle:        "Valid trust policy.",
+		},
+		{
+			name:             "enforcement off, repo scope allowed",
+			enforceOrgPolicy: false,
+			repo:             "bar",
+			wantConclusion:   "success",
+			wantTitle:        "Valid trust policy.",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := []*github.CreateCheckRunOptions{}
+
+			mux := http.NewServeMux()
+			// Capture CheckRun creation for any repo under owner "foo".
+			// Use a broad path prefix and check for check-runs suffix.
+			mux.HandleFunc("POST /api/v3/repos/foo/{repo}/check-runs", func(w http.ResponseWriter, r *http.Request) {
+				opt := new(github.CreateCheckRunOptions)
+				if err := json.NewDecoder(r.Body).Decode(opt); err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				got = append(got, opt)
+			})
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				path := filepath.Join("testdata", r.URL.Path)
+				f, err := os.Open(path)
+				if err != nil {
+					clog.FromContext(r.Context()).Errorf("%s not found", path)
+					http.Error(w, err.Error(), http.StatusNotFound)
+					return
+				}
+				defer f.Close()
+				if _, err := io.Copy(w, f); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+			})
+			gh := httptest.NewServer(mux)
+			defer gh.Close()
+
+			key, err := rsa.GenerateKey(rand.Reader, 2048)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tr := ghinstallation.NewAppsTransportFromPrivateKey(gh.Client().Transport, 1234, key)
+			tr.BaseURL = gh.URL
+
+			secret := []byte("hunter2")
+			v := &Validator{
+				Transport:        tr,
+				WebhookSecret:    [][]byte{secret},
+				EnforceOrgPolicy: tc.enforceOrgPolicy,
+			}
+			srv := httptest.NewServer(v)
+			defer srv.Close()
+
+			body, err := json.Marshal(github.PushEvent{
+				Installation: &github.Installation{ID: github.Ptr(int64(1111))},
+				Organization: &github.Organization{Login: github.Ptr("foo")},
+				Repo: &github.PushEventRepository{
+					Owner: &github.User{Login: github.Ptr("foo")},
+					Name:  github.Ptr(tc.repo),
+				},
+				Before: github.Ptr("aaaa"),
+				After:  github.Ptr("bbbb"),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req, err := http.NewRequest(http.MethodPost, srv.URL, bytes.NewBuffer(body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("X-Hub-Signature", signature(secret, body))
+			req.Header.Set("X-GitHub-Event", "push")
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := srv.Client().Do(req.WithContext(slogtest.Context(t)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if resp.StatusCode != 200 {
+				out, _ := httputil.DumpResponse(resp, true)
+				t.Fatalf("expected 200, got\n%s", string(out))
+			}
+
+			if len(got) != 1 {
+				t.Fatalf("expected 1 check run, got %d", len(got))
+			}
+			if g := *got[0].Conclusion; g != tc.wantConclusion {
+				t.Errorf("conclusion: got %q, want %q", g, tc.wantConclusion)
+			}
+			if g := *got[0].Output.Title; g != tc.wantTitle {
+				t.Errorf("title: got %q, want %q", g, tc.wantTitle)
+			}
+		})
+	}
+}
+
 func TestWebhookDeletedSTS(t *testing.T) {
 	// CheckRuns will be collected here.
 	got := []*github.CreateCheckRunOptions{}
