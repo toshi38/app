@@ -103,9 +103,10 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", &webhook.Validator{
-		Transport:     atr,
-		WebhookSecret: webhookSecrets,
-		Organizations: orgs,
+		Transport:        atr,
+		WebhookSecret:    webhookSecrets,
+		Organizations:    orgs,
+		EnforceOrgPolicy: baseCfg.EnforceOrgPolicy,
 	})
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", baseCfg.Port),

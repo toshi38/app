@@ -44,7 +44,8 @@ type Validator struct {
 	// Only one needs to match for the event to be considered valid.
 	WebhookSecret [][]byte
 
-	Organizations []string
+	Organizations    []string
+	EnforceOrgPolicy bool
 }
 
 func (e *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -131,6 +132,30 @@ func (e *Validator) handleSHA(ctx context.Context, client *github.Client, owner,
 	// Commit doesn't exist - nothing to do.
 	if sha == zeroHash {
 		return nil, nil
+	}
+
+	// Enforce org-only policy if configured.
+	if e.EnforceOrgPolicy && repo != ".github" {
+		log.Infof("org-level enforcement: rejecting repo-level trust policy in %s/%s", owner, repo)
+		opts := github.CreateCheckRunOptions{
+			Name:        "Trust Policy Validation",
+			HeadSHA:     sha,
+			ExternalID:  github.Ptr(sha),
+			Status:      github.Ptr("completed"),
+			Conclusion:  github.Ptr("failure"),
+			StartedAt:   &github.Timestamp{Time: time.Now()},
+			CompletedAt: &github.Timestamp{Time: time.Now()},
+			Output: &github.CheckRunOutput{
+				Title:   github.Ptr("Trust policy not allowed."),
+				Summary: github.Ptr("Org-level trust policy enforcement is enabled. Repository-level trust policies are not allowed. Define trust policies in the .github repository instead."),
+			},
+		}
+		cr, _, err := client.Checks.CreateCheckRun(ctx, owner, repo, opts)
+		if err != nil {
+			log.Errorf("error creating CheckRun: %v", err)
+			return nil, err
+		}
+		return cr, nil
 	}
 
 	err := validatePolicies(ctx, client, owner, repo, sha, files)
