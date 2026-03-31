@@ -93,6 +93,40 @@ The App will attempt to load the trust policy from
 satisfies those rules, it will return a token with the permissions in the trust
 policy.
 
+### Org-Level Policy Enforcement
+
+When `ENFORCE_ORG_POLICY` is set to `true`, octo-sts restricts trust policies
+to org-level only. Repository-level `.sts.yaml` files (in repos other than
+`.github`) are rejected:
+
+- **Exchange handler**: Returns `PermissionDenied` for repo-scoped token requests
+- **Webhook handler**: Creates a failed CheckRun when repo-level policies are pushed
+
+Org-level policies in the `.github` repository continue to work normally.
+
+#### Enabling Enforcement
+
+Set the `ENFORCE_ORG_POLICY` environment variable to `true` on both the app and
+webhook Cloud Run services. Using Terraform:
+
+```hcl
+module "app" {
+  # ...
+  enforce_org_policy = true
+}
+```
+
+#### Migration Guide
+
+Before enabling enforcement:
+
+1. Audit existing repo-level trust policies: check all repositories for
+   `.github/chainguard/*.sts.yaml` files
+2. Migrate policies to the org `.github` repository, converting `TrustPolicy`
+   to `OrgTrustPolicy` format (add `repositories` field to scope access)
+3. Remove repo-level policies from individual repositories
+4. Enable `ENFORCE_ORG_POLICY=true`
+
 ### Release cadence
 
 Our release cadence at this moment is set to when is needed, meaning if we have a bug fix or a new feature
